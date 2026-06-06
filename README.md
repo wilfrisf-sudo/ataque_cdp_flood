@@ -58,9 +58,10 @@ SWI2(config)# no cdp run
 SWI2(config)# end
 -----------------------------------------------------------------------------------------------------------------------
 6. Evidencias
+7. 
 6.1. Demostración en Video
 
-En el siguiente enlace se encuentra el video demostrativo (máx. 5 minutos) donde se visualiza la topología con mi nombre y matrícula, la fecha y hora, la ejecución del ataque y la aplicación de la contramedida:
+En el siguiente enlace se encuentra el video demostrativo donde se visualiza la topología con la ejecución del ataque y la aplicación de la contramedida:
 
 https://youtu.be/L43TLI6w06o?si=EQB0W8h4c1NpTNgM
 
