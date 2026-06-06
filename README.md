@@ -4,9 +4,13 @@ Autor: Wilfri Solano Frias
 Matrícula: 2024-2364
 -----------------------------------------------------------------------------------------------------------------------
 1. Objetivo del Laboratorio
+
 Conocer las vulnerabilidades y peligros reales de los protocolos de descubrimiento no autenticados en entornos LAN, analizando cómo la falta de seguridad puede ser explotada para desestabilizar la infraestructura física.
+
 -----------------------------------------------------------------------------------------------------------------------
+
 2. Objetivo del Script
+
 Inyectar miles de identidades falsas (`Cisco-Falso-X`) a alta velocidad para saturar el proceso Cisco Discovery Protocol (CDP) y congelar la administración (plano de control) del switch.
 
 2.1. Requisitos para utilizar la herramienta
@@ -26,11 +30,16 @@ El script admite y manipula las siguientes variables y configuraciones:
 * `nombre_dispositivo`: Identificador único del host (`Cisco-Falso-X`) diseñado para saturar la memoria del switch.
 * `puerto_origen`: Distribución cíclica de interfaces ficticias (`GigabitEthernet0/0` a `0/23`).
 * `pps=50000`: Argumento del método `sendpfast` que delega el envío a `tcpreplay` para garantizar una transferencia masiva.
+
 -----------------------------------------------------------------------------------------------------------------------
+
 3. Documentación del Funcionamiento del Script
 El programa crea una lista en la memoria RAM del atacante que precarga 8,000 estructuras lógicas CDP válidas (con cabeceras LLC y SNAP). Cada paquete varía su dirección MAC de origen y su *Device ID* interno. Una vez construidos, el script invoca a `sendpfast`, transmitiendo la totalidad de los paquetes a una velocidad de 50,000 tramas por segundo. Al ser un switch virtual (IOU) sin chips ASIC físicos de Capa 2, debe procesar cada paquete falso mediante interrupciones de software (CPU), lo que inhabilita instantáneamente la respuesta de la consola de comandos debido a la sobrecarga.
+
 -----------------------------------------------------------------------------------------------------------------------
+
 4. Documentación de la Red
+
 4.1. Topología
 * Descripción: Infraestructura virtualizada en GNS3 compuesta por un Router legítimo (para probar la función natural de CDP), un Switch de Acceso bajo prueba (SWI2) y la estación del atacante.
 * VLANs Configuradas: VLAN 1 (Nativa / Por defecto).
@@ -40,12 +49,15 @@ El programa crea una lista en la memoria RAM del atacante que precarga 8,000 est
 * Interfaces Clave:
   * `Ethernet0/0` (SWI2) apuntando al Router.
   * `Ethernet0/1` (SWI2) apuntando al host atacante (Kali).
+
 -----------------------------------------------------------------------------------------------------------------------
+
 5. Contramedidas (Mitigación)
 Para anular este vector de ataque y proteger la estabilidad del Switch Cisco, se aplican las siguientes directivas en el IOS:
 
 A. Desactivación Selectiva por Interfaz (Recomendada en Acceso):
 Consiste en apagar CDP únicamente en los puertos donde se conectan usuarios o sistemas finales (como el puerto del atacante), manteniéndolo en los enlaces troncales.
+
 SWI2# configure terminal
 SWI2(config)# interface Ethernet0/1
 SWI2(config-if)# no cdp enable
@@ -53,12 +65,15 @@ SWI2(config-if)# end
 
 B.Desactivación Global del Protocolo:
 Si la infraestructura no depende de estas herramientas de descubrimiento ni utiliza telefonía IP, se recomienda apagarlo por completo.
+
 SWI2# configure terminal
 SWI2(config)# no cdp run
 SWI2(config)# end
+
 -----------------------------------------------------------------------------------------------------------------------
+
 6. Evidencias
-7. 
+
 6.1. Demostración en Video
 
 En el siguiente enlace se encuentra el video demostrativo donde se visualiza la topología con la ejecución del ataque y la aplicación de la contramedida:
