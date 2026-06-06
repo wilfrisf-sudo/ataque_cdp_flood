@@ -65,16 +65,21 @@ https://youtu.be/L43TLI6w06o?si=EQB0W8h4c1NpTNgM
 
 6.2. Capturas de Pantalla
 Topología en GNS3
+
 <img width="414" height="379" alt="imagen" src="https://github.com/user-attachments/assets/ba9d7946-e55e-468b-a482-3a6d5752f6af" />
 
 Estado normal
+
 <img width="827" height="233" alt="imagen" src="https://github.com/user-attachments/assets/7011bfdd-fa99-4671-a068-4155fe4e5bd4" />
 
 Ejecución del script
+
 <img width="427" height="360" alt="imagen" src="https://github.com/user-attachments/assets/8a11f4f3-60a8-42f3-87e1-e43cc0809850" />
 
 Impacto en el switch
+
 <img width="651" height="441" alt="imagen" src="https://github.com/user-attachments/assets/f9836c05-34ab-47fb-b1af-0f1f6a32f49b" />
 
 Aplicación de contramedidas
+
 <img width="443" height="68" alt="imagen" src="https://github.com/user-attachments/assets/959efb2f-5a4c-4962-9e1b-b792b4fcf03c" />
